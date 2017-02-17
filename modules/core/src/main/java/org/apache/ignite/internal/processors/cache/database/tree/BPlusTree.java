@@ -120,20 +120,6 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
     /** */
     private volatile TreeMetaData treeMeta;
 
-    /**
-     *
-     */
-    public static interface RowClosure<L, R> {
-        /**
-         * @param io IO.
-         * @param pageAddr Page address.
-         * @param idx Index.
-         * @return Result.
-         * @throws IgniteCheckedException If failed.
-         */
-        public R row(BPlusIO<L> io, long pageAddr, int idx) throws IgniteCheckedException;
-    }
-
     /** */
     private final GridTreePrinter<Long> treePrinter = new GridTreePrinter<Long>() {
         /** */
@@ -953,16 +939,16 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
     /**
      * @param row Lookup row for exact match.
-     * @param c Found row closure.
-     * @return Found result.
+     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+     * @return Found result or {@code null}.
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    public final <R> R findOne(L row, RowClosure<L, R> c) throws IgniteCheckedException {
+    public final <R> R findOne(L row, Object x) throws IgniteCheckedException {
         checkDestroyed();
 
         try {
-            GetOne g = new GetOne(row, c);
+            GetOne g = new GetOne(row, x);
 
             doFind(g);
 
@@ -1460,10 +1446,10 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
     }
 
     /** {@inheritDoc} */
-    @Override public void invoke(L row, InvokeClosure<T> c) throws IgniteCheckedException {
+    @Override public void invoke(L row, Object z, InvokeClosure<T> c) throws IgniteCheckedException {
         checkDestroyed();
 
-        Invoke x = new Invoke(row, c);
+        Invoke x = new Invoke(row, z, c);
 
         try {
             for (;;) {
@@ -2327,16 +2313,16 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      */
     private final class GetOne extends Get {
         /** */
-        final RowClosure<L, ?> c;
+        Object x;
 
         /**
          * @param row Row.
-         * @param c Row closure.
+         * @param x Implementation specific argument.
          */
-        private GetOne(L row, RowClosure<L, ?> c) {
+        private GetOne(L row, Object x) {
             super(row);
 
-            this.c = c;
+            this.x = x;
         }
 
         /** {@inheritDoc} */
@@ -2346,7 +2332,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             if (lvl != 0 && !canGetRowFromInner)
                 return false;
 
-            row = c != null ? (L)c.row(io, pageAddr, idx) : getRow(io, pageAddr, idx);
+            row = getRow(io, pageAddr, idx, x);
 
             return true;
         }
@@ -2715,7 +2701,10 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      */
     private final class Invoke extends Get {
         /** */
-        final InvokeClosure<T> clo;
+        Object x;
+
+        /** */
+        InvokeClosure<T> clo;
 
         /** */
         Bool closureInvoked = FALSE;
@@ -2728,14 +2717,16 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
         /**
          * @param row Row.
+         * @param x Implementation specific argument.
          * @param clo Closure.
          */
-        private Invoke(L row, final InvokeClosure<T> clo) {
+        private Invoke(L row, Object x, final InvokeClosure<T> clo) {
             super(row);
 
             assert clo != null;
 
             this.clo = clo;
+            this.x = x;
         }
 
         /** {@inheritDoc} */
@@ -2780,7 +2771,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                 if (closureInvoked == FALSE) {
                     closureInvoked = READY;
 
-                    foundRow = getRow(io, pageAddr, idx);
+                    foundRow = getRow(io, pageAddr, idx, x);
                 }
 
                 return true;
@@ -4154,7 +4145,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
     protected abstract int compare(BPlusIO<L> io, long pageAddr, int idx, L row) throws IgniteCheckedException;
 
     /**
-     * Get the full detached row. Can be called on inner page only if {@link #canGetRowFromInner} is {@code true}.
+     * Get a full detached data row.
      *
      * @param io IO.
      * @param pageAddr Page address.
@@ -4162,7 +4153,21 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      * @return Full detached data row.
      * @throws IgniteCheckedException If failed.
      */
-    protected abstract T getRow(BPlusIO<L> io, long pageAddr, int idx) throws IgniteCheckedException;
+    protected final T getRow(BPlusIO<L> io, long pageAddr, int idx) throws IgniteCheckedException {
+        return getRow(io, pageAddr, idx, null);
+    }
+
+    /**
+     * Get data row. Can be called on inner page only if {@link #canGetRowFromInner} is {@code true}.
+     *
+     * @param io IO.
+     * @param pageAddr Page address.
+     * @param idx Index.
+     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+     * @return Data row.
+     * @throws IgniteCheckedException If failed.
+     */
+    protected abstract T getRow(BPlusIO<L> io, long pageAddr, int idx, Object x) throws IgniteCheckedException;
 
     /**
      * Forward cursor.

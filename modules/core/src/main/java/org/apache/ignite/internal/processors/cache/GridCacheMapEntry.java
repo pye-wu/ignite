@@ -3950,6 +3950,9 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         @Override public void call(@Nullable CacheDataRow oldRow) throws IgniteCheckedException {
             assert entry.isNear() || oldRow == null || oldRow.link() != 0 : oldRow;
 
+            if (oldRow != null)
+                oldRow.key(entry.key());
+
             this.oldRow = oldRow;
 
             GridCacheContext cctx = entry.context();

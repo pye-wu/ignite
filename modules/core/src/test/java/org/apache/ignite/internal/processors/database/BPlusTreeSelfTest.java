@@ -209,7 +209,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
 //            tree.findOne(key); // 39
 //            tree.putx(key); // 22
 
-            tree.invoke(key, new IgniteTree.InvokeClosure<Long>() { // 25
+            tree.invoke(key, null, new IgniteTree.InvokeClosure<Long>() { // 25
                 @Override public void call(@Nullable Long row) throws IgniteCheckedException {
                     // No-op.
                 }
@@ -663,7 +663,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
             }
 
             // Consistently update tree.
-            tree.invoke(x, new IgniteTree.InvokeClosure<Long>() {
+            tree.invoke(x, null, new IgniteTree.InvokeClosure<Long>() {
 
                 IgniteTree.OperationType op;
 
@@ -1240,7 +1240,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
                             assertNoLocks();
                         }
                         else if (op == 2) {
-                            tree.invoke(x, new IgniteTree.InvokeClosure<Long>() {
+                            tree.invoke(x, null, new IgniteTree.InvokeClosure<Long>() {
                                 IgniteTree.OperationType opType;
 
                                 @Override public void call(@Nullable Long row) throws IgniteCheckedException {
@@ -1262,7 +1262,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
                             map.put(x,x);
                         }
                         else if (op == 3) {
-                            tree.invoke(x, new IgniteTree.InvokeClosure<Long>() {
+                            tree.invoke(x, null, new IgniteTree.InvokeClosure<Long>() {
                                 IgniteTree.OperationType opType;
 
                                 @Override public void call(@Nullable Long row) throws IgniteCheckedException {
@@ -1457,7 +1457,8 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override protected Long getRow(BPlusIO<Long> io, long pageAddr, int idx) throws IgniteCheckedException {
+        @Override protected Long getRow(BPlusIO<Long> io, long pageAddr, int idx, Object ignore)
+            throws IgniteCheckedException {
             assert io.canGetRow() : io;
 
             return io.getLookupRow(this, pageAddr, idx);
