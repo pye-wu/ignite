@@ -1578,9 +1578,15 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                         return res;
 
                     case NOT_FOUND:
+                        if (lvl == 0)
+                            x.invokeClosure();
+
                         return x.onNotFound(page, pageId, fwdId, lvl);
 
                     case FOUND:
+                        if (lvl == 0)
+                            x.invokeClosure();
+
                         return x.onFound(page, pageId, backId, fwdId, lvl);
 
                     default:
@@ -2712,7 +2718,10 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         final InvokeClosure<T> clo;
 
         /** */
-        boolean closureInvoked;
+        Bool closureInvoked = FALSE;
+
+        /** */
+        T foundRow;
 
         /** */
         Get op;
@@ -2768,7 +2777,11 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                 return op.found(io, pageAddr, idx, lvl);
 
             if (lvl == 0) {
-                invokeClosure(io, pageAddr, idx);
+                if (closureInvoked == FALSE) {
+                    closureInvoked = READY;
+
+                    foundRow = getRow(io, pageAddr, idx);
+                }
 
                 return true;
             }
@@ -2783,7 +2796,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                 return op.notFound(io, pageAddr, idx, lvl);
 
             if (lvl == 0) {
-                invokeClosure(null, 0L, 0);
+                if (closureInvoked == FALSE)
+                    closureInvoked = READY;
 
                 return true;
             }
@@ -2792,20 +2806,15 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         }
 
         /**
-         * @param io IO.
-         * @param pageAddr Page address.
-         * @param idx Index of found entry.
          * @throws IgniteCheckedException If failed.
          */
-        private void invokeClosure(BPlusIO<L> io, long pageAddr, int idx) throws IgniteCheckedException {
-            if (closureInvoked)
+        private void invokeClosure() throws IgniteCheckedException {
+            if (closureInvoked != READY)
                 return;
 
-            closureInvoked = true;
+            closureInvoked = DONE;
 
-            boolean rowFound = io != null;
-
-            clo.call(rowFound ? getRow(io, pageAddr, idx) : null);
+            clo.call(foundRow);
 
             switch (clo.operationType()) {
                 case PUT:
@@ -2813,32 +2822,27 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
                     assert newRow != null;
 
-                    // Row key must be equal to the old one.
-                    assert !rowFound || compare(io, pageAddr, idx, newRow) == 0;
-
                     op = new Put(newRow, false);
 
                     break;
 
                 case REMOVE:
-                    assert rowFound;
+                    assert foundRow != null;
 
                     op = new Remove(row, false);
 
                     break;
 
                 case NOOP:
-                    break;
+                    return;
 
                 default:
                     throw new IllegalStateException();
             }
 
-            if (op != null) {
-                op.copyFrom(this);
+            op.copyFrom(this);
 
-                op.invoke = this;
-            }
+            op.invoke = this;
         }
 
         /** {@inheritDoc} */
@@ -2956,7 +2960,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
         /** {@inheritDoc} */
         @Override boolean isFinished() {
-            if (!closureInvoked)
+            if (closureInvoked != DONE)
                 return false;
 
             if (op == null)
