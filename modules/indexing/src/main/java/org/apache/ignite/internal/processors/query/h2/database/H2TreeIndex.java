@@ -56,7 +56,7 @@ public class H2TreeIndex extends GridH2IndexBase {
     public static final int IGNITE_MAX_INDEX_PAYLOAD_SIZE_DEFAULT = 0;
 
     /** PageContext for use in IO's */
-    private static final ThreadLocal<H2TreeIndex> currentIndex = new ThreadLocal<>();
+    //private static final ThreadLocal<H2TreeIndex> currentIndex = new ThreadLocal<>();
 
     /** */
     private final H2Tree tree;
@@ -205,7 +205,8 @@ public class H2TreeIndex extends GridH2IndexBase {
      * @return Tree updated in current thread.
      */
     public static H2TreeIndex getCurrentIndex() {
-        return currentIndex.get();
+        //return currentIndex.get();
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -272,7 +273,7 @@ public class H2TreeIndex extends GridH2IndexBase {
     /** {@inheritDoc} */
     @Override public GridH2Row put(GridH2Row row) {
         try {
-            currentIndex.set(this);
+            //currentIndex.set(this);
 
             return tree.put(row);
         }
@@ -280,14 +281,14 @@ public class H2TreeIndex extends GridH2IndexBase {
             throw DbException.convert(e);
         }
         finally {
-            currentIndex.remove();
+            //currentIndex.remove();
         }
     }
 
     /** {@inheritDoc} */
     @Override public boolean putx(GridH2Row row) {
         try {
-            currentIndex.set(this);
+            //currentIndex.set(this);
 
             return tree.putx(row);
         }
@@ -295,35 +296,35 @@ public class H2TreeIndex extends GridH2IndexBase {
             throw DbException.convert(e);
         }
         finally {
-            currentIndex.remove();
+            //currentIndex.remove();
         }
     }
 
     /** {@inheritDoc} */
     @Override public GridH2Row remove(SearchRow row) {
         try {
-            currentIndex.set(this);
+            //currentIndex.set(this);
             return tree.remove(row);
         }
         catch (IgniteCheckedException e) {
             throw DbException.convert(e);
         }
         finally {
-            currentIndex.remove();
+            //currentIndex.remove();
         }
     }
 
     /** {@inheritDoc} */
     @Override public void removex(SearchRow row) {
         try {
-            currentIndex.set(this);
+            //currentIndex.set(this);
             tree.removex(row);
         }
         catch (IgniteCheckedException e) {
             throw DbException.convert(e);
         }
         finally {
-            currentIndex.remove();
+            //currentIndex.remove();
         }
     }
 
